@@ -20,7 +20,6 @@ import (
 
 type system struct {
 	model tts.Model
-	mc    tts.Context
 }
 
 func newSystem(ctx context.Context, modelPath string) (*system, error) {
@@ -36,21 +35,8 @@ func newSystem(ctx context.Context, modelPath string) (*system, error) {
 		return nil, ce
 	}
 
-	tc, err := model.NewContext()
-	if err != nil {
-		model.Close()
-		return nil, fmt.Errorf("model context: %w", err)
-	}
-	if ce := ctx.Err(); ce != nil {
-		model.Close()
-		return nil, ce
-	}
-
-	// TODO(kardianos): turn these into options.
-	tc.SetLanguage("en")
 	return &system{
 		model: model,
-		mc:    tc,
 	}, nil
 }
 
@@ -66,6 +52,15 @@ func (s *system) Close() error {
 
 func (s *system) Transcribe(ctx context.Context, inputPath, outputPath string) error {
 	var data []float32
+
+	mc, err := s.model.NewContext()
+	if err != nil {
+		return err
+	}
+	err = mc.SetLanguage("en")
+	if err != nil {
+		return err
+	}
 
 	var tempFile string
 	if true {
@@ -136,7 +131,7 @@ func (s *system) Transcribe(ctx context.Context, inputPath, outputPath string) e
 		return ce
 	}
 
-	err := s.mc.Process(data, nil)
+	err = mc.Process(data, nil)
 	if err != nil {
 		return err
 	}
@@ -161,30 +156,15 @@ func (s *system) Transcribe(ctx context.Context, inputPath, outputPath string) e
 		if ce := ctx.Err(); ce != nil {
 			return ce
 		}
-		segment, err := s.mc.NextSegment()
+		segment, err := mc.NextSegment()
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				break
 			}
+			outBuf.Flush()
 			return err
 		}
-
-		fmt.Fprintf(out, "%02d [%6s->%6s] ", segment.Num, segment.Start.Truncate(time.Millisecond), segment.End.Truncate(time.Millisecond))
-		for _, token := range segment.Tokens {
-			if color && s.mc.IsText(token) {
-				fmt.Fprint(out, colorize(token.Text, int(token.P*24.0)), " ")
-			} else {
-				if onlyText && !s.mc.IsText(token) {
-					continue
-				}
-				fmt.Fprint(out, token.Text, " ")
-			}
-		}
-		fmt.Fprint(out, "\n")
-		err = outBuf.Flush()
-		if err != nil {
-			return err
-		}
+		fmt.Fprintf(out, "%8s: %s\n", segment.Start.Truncate(time.Second/10), segment.Text)
 	}
 	err = outBuf.Flush()
 	if err != nil {
@@ -210,7 +190,7 @@ func Watch(ctx context.Context, modelPath string, dirList []string) error {
 	}
 	defer s.Close()
 
-	const checkInterval = time.Minute * 10
+	const checkInterval = time.Second * 10
 	var lastCheckTime time.Time
 	enqueue := make(chan string, 50)
 	queue := map[string]bool{}
@@ -248,25 +228,26 @@ func Watch(ctx context.Context, modelPath string, dirList []string) error {
 
 				go func(fn string) {
 					if !inTranscription.CompareAndSwap(false, true) {
-						enqueue <- fn
 						return
 					}
 					defer inTranscription.Store(false)
 
 					fnText := fn + suffix
 					_, err := os.Stat(fnText)
-					if err != nil && !errors.Is(err, os.ErrNotExist) {
-						errorReport <- fmt.Errorf("stat possible txt %q: %w", fnText, err)
+					if err == nil {
 						return
 					}
 
+					start := time.Now()
 					fmt.Fprintf(os.Stdout, "START: %q...", fn)
 					err = s.Transcribe(ctx, fn, fnText)
+					dur := time.Now().Sub(start).Truncate(time.Millisecond)
+
 					if err != nil {
-						fmt.Fprintf(os.Stdout, "ERROR\n")
+						fmt.Fprintf(os.Stdout, "ERROR (%v)\n", dur)
 						errorReport <- fmt.Errorf("Transcribe %q: %w", fn, err)
 					}
-					fmt.Fprintf(os.Stdout, "DONE.\n")
+					fmt.Fprintf(os.Stdout, "DONE (%v).\n", dur)
 				}(fn)
 				break
 			}
@@ -329,17 +310,4 @@ func Transcribe(ctx context.Context, modelPath, inputPath, outputPath string) er
 	defer s.Close()
 
 	return s.Transcribe(ctx, inputPath, outputPath)
-}
-
-const (
-	colorReset     = "\033[0m"
-	colorRGBPrefix = "\033[38;5;" // followed by RGB values in decimal format separated by colons
-	colorRGBSuffix = "m"
-)
-
-// colorize text with RGB values, from 0 to 23
-func colorize(text string, v int) string {
-	// https://en.wikipedia.org/wiki/ANSI_escape_code#8-bit
-	// Grayscale colors are in the range 232-255
-	return colorRGBPrefix + fmt.Sprint(v%24+232) + colorRGBSuffix + text + colorReset
 }
