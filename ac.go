@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -57,6 +58,14 @@ func (s *system) Transcribe(ctx context.Context, inputPath, outputPath string) e
 	if err != nil {
 		return err
 	}
+
+	// Speedups appears limited after 4 threads.
+	threadCount := runtime.NumCPU()
+	if threadCount > 4 {
+		threadCount = 4
+	}
+	mc.SetThreads(uint(threadCount))
+
 	err = mc.SetLanguage("en")
 	if err != nil {
 		return err
