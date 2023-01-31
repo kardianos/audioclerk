@@ -173,7 +173,7 @@ func (s *system) Transcribe(ctx context.Context, inputPath, outputPath string) e
 			outBuf.Flush()
 			return err
 		}
-		fmt.Fprintf(out, "%8s: %s\n", segment.Start.Truncate(time.Second/10), segment.Text)
+		fmt.Fprintf(out, "%10s: %s\n", segment.Start.Truncate(time.Second/10), segment.Text)
 	}
 	err = outBuf.Flush()
 	if err != nil {
