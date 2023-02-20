@@ -16,18 +16,18 @@ import (
 	"time"
 
 	"github.com/go-audio/wav"
-	"github.com/kardianos/whisper.cpp/tts"
+	stt "github.com/kardianos/whisper.cpp/stt"
 )
 
 type system struct {
-	model tts.Model
+	model stt.Model
 }
 
 func newSystem(ctx context.Context, modelPath string) (*system, error) {
 	if ce := ctx.Err(); ce != nil {
 		return nil, ce
 	}
-	model, err := tts.New(modelPath)
+	model, err := stt.New(modelPath)
 	if err != nil {
 		return nil, fmt.Errorf("model load: %w", err)
 	}
@@ -123,7 +123,7 @@ func (s *system) Transcribe(ctx context.Context, inputPath, outputPath string) e
 		if frames == 0 {
 			return fmt.Errorf("no audio frames")
 		}
-		if dec.SampleRate != tts.SampleRate {
+		if dec.SampleRate != stt.SampleRate {
 			return fmt.Errorf("unsupported sample rate: %d", dec.SampleRate)
 		}
 		if dec.NumChans != 1 {
@@ -248,9 +248,9 @@ func Watch(ctx context.Context, modelPath string, dirList []string) error {
 					}
 
 					start := time.Now()
-					fmt.Fprintf(os.Stdout, "START: %q...", fn)
+					fmt.Fprintf(os.Stdout, "START %s: %q...", start.Format(time.DateTime), fn)
 					err = s.Transcribe(ctx, fn, fnText)
-					dur := time.Now().Sub(start).Truncate(time.Millisecond)
+					dur := time.Since(start)
 
 					if err != nil {
 						fmt.Fprintf(os.Stdout, "ERROR (%v)\n", dur)
@@ -304,6 +304,15 @@ func readDir(dn string, allowExt map[string]bool, suffix string) ([]string, erro
 			}
 			fnText := fn + suffix
 			if _, err := os.Stat(fnText); err == nil {
+				continue
+			}
+			info, err := fi.Info()
+			if err != nil {
+				continue
+			}
+			// Ensure a file is fully copied before starting.
+			mod := info.ModTime()
+			if time.Since(mod) < time.Minute*10 {
 				continue
 			}
 			list = append(list, fn)

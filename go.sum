@@ -11,6 +11,8 @@ github.com/kardianos/whisper.cpp v1.1.2 h1:jAxXWG/nb8SW9L4Bo8zaN4zeRCqWh+59wv83r
 github.com/kardianos/whisper.cpp v1.1.2/go.mod h1:Tdb2p3ED92OM59LiUfXDhMDUQM53V9mZH2Nud3FpHG4=
 github.com/kardianos/whisper.cpp v1.1.3 h1:F6IzGImVbLjQpZ4mI7J8aEcPVhydwEbPuay/j3DDQ1Q=
 github.com/kardianos/whisper.cpp v1.1.3/go.mod h1:Tdb2p3ED92OM59LiUfXDhMDUQM53V9mZH2Nud3FpHG4=
+github.com/kardianos/whisper.cpp v1.1.4 h1:QLX0AynVM6t5jmD+VRssKDA9ipKjk7MdwkrbqUQe62M=
+github.com/kardianos/whisper.cpp v1.1.4/go.mod h1:Tdb2p3ED92OM59LiUfXDhMDUQM53V9mZH2Nud3FpHG4=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/stretchr/testify v1.8.1 h1:w7B6lhMri9wdJUVmEZPGGhZzrYTPvgJArz7wNPgYKsk=
 gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=
